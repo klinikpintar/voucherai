@@ -1,0 +1,48 @@
+# Voucher Management System
+
+A comprehensive voucher management system with AdminJS panel and REST API.
+
+## Features
+
+- Admin Panel for CRUD Operations
+- Voucher Expiry Check (Automated)
+- REST API with Swagger Documentation
+- Token-based API Authentication
+- SQLite Database (Sequelize ORM)
+
+## Setup
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Create .env file:
+```bash
+cp .env.example .env
+```
+
+3. Run migrations:
+```bash
+npx sequelize-cli db:migrate
+```
+
+4. Start the server:
+```bash
+npm start
+```
+
+## Access Points
+
+- Admin Panel: http://localhost:3000/admin
+- API Documentation: http://localhost:3000/api-docs
+- API Base URL: http://localhost:3000/api/v1
+
+## Default Admin Credentials
+
+- Username: admin@example.com
+- Password: adminpassword
+
+## API Authentication
+
+All API endpoints require a Bearer token which can be generated from the admin panel.
