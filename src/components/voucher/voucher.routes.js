@@ -4,7 +4,8 @@ import {
   listVouchers,
   redeemVoucher,
   updateVoucher,
-  validateVoucher
+  validateVoucher,
+  getRedemptionHistory
 } from './voucher.controller.js';
 import { authenticateToken } from '../auth/auth.middleware.js';
 
@@ -293,5 +294,55 @@ router.put('/:code', authenticateToken, updateVoucher);
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/validate', authenticateToken, validateVoucher);
+
+/**
+ * @swagger
+ * /api/v1/vouchers/redemptions:
+ *   get:
+ *     summary: Get redemption history
+ *     tags: [Vouchers]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: voucherId
+ *         schema:
+ *           type: integer
+ *         description: Filter by voucher ID
+ *       - in: query
+ *         name: customerId
+ *         schema:
+ *           type: string
+ *         description: Filter by customer ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Items per page
+ *     responses:
+ *       200:
+ *         description: Redemption history
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 total:
+ *                   type: integer
+ *                 limit:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ */
+router.get('/redemptions', authenticateToken, getRedemptionHistory);
 
 export default router;

@@ -1,4 +1,5 @@
 import Voucher from '../voucher/voucher.model.js';
+import VoucherRedemption from '../voucher/voucher-redemption.model.js';
 import ApiToken from '../auth/apiToken.model.js';
 import { getVoucherStats } from './dashboard/voucher-stats.handler.js';
 import { componentLoader, dashboardComponent } from './component-loader.js';
@@ -27,14 +28,19 @@ const adminJsConfig = {
             position: 2
           },
           code: {
-            isRequired: true,
             type: 'string',
             position: 3
+          },
+          customerId: {
+            type: 'string',
+            isRequired: false,
+            position: 4,
+            description: 'If set, only this customer can redeem the voucher'
           },
           isActive: {
             isVisible: { list: true, filter: true, show: true, edit: true },
             type: 'boolean',
-            position: 4
+            position: 5
           },
           'discount.type': {
             type: 'select',
@@ -43,7 +49,7 @@ const adminJsConfig = {
               { value: 'AMOUNT', label: 'Fixed Amount' },
               { value: 'PERCENTAGE', label: 'Percentage' }
             ],
-            position: 5
+            position: 6
           },
           'discount.amountOff': {
             type: 'number',
@@ -53,7 +59,7 @@ const adminJsConfig = {
               show: true,
               edit: ({ record }) => record?.params?.['discount.type'] === 'AMOUNT'
             },
-            position: 6
+            position: 7
           },
           'discount.percentOff': {
             type: 'number',
@@ -65,47 +71,48 @@ const adminJsConfig = {
               show: true,
               edit: ({ record }) => record?.params?.['discount.type'] === 'PERCENTAGE'
             },
-            position: 7
+            position: 8
           },
           'redemption.quantity': {
             type: 'number',
             isRequired: true,
             min: 1,
-            position: 8
+            position: 9
           },
           'redemption.dailyQuota': {
             type: 'number',
             isRequired: true,
             min: 1,
-            position: 9
+            position: 10
           },
           startDate: {
             type: 'datetime',
             isRequired: true,
-            position: 10
+            position: 11
           },
           expirationDate: {
             type: 'datetime',
             isRequired: true,
-            position: 11
+            position: 12
           },
           redeemedCount: {
             isVisible: { list: true, filter: true, show: true, edit: false },
             type: 'number',
-            position: 12
+            position: 13
           },
           createdAt: {
             isVisible: { list: true, filter: true, show: true, edit: false },
-            position: 13
+            position: 14
           },
           updatedAt: {
             isVisible: { list: false, filter: true, show: true, edit: false },
-            position: 14
+            position: 15
           }
         },
         editProperties: [
           'name',
           'code',
+          'customerId',
           'isActive',
           'startDate',
           'expirationDate',
@@ -119,6 +126,7 @@ const adminJsConfig = {
           'id',
           'name',
           'code',
+          'customerId',
           'isActive',
           'startDate',
           'expirationDate',
@@ -134,6 +142,7 @@ const adminJsConfig = {
         listProperties: [
           'name',
           'code',
+          'customerId',
           'isActive',
           'startDate',
           'expirationDate',
@@ -142,6 +151,7 @@ const adminJsConfig = {
         filterProperties: [
           'name',
           'code',
+          'customerId',
           'isActive',
           'startDate',
           'expirationDate'
@@ -150,6 +160,75 @@ const adminJsConfig = {
           sortBy: 'createdAt',
           direction: 'desc',
         }
+      }
+    },
+    {
+      resource: VoucherRedemption,
+      options: {
+        navigation: {
+          name: 'Voucher Redemptions',
+          icon: 'Ticket'
+        },
+        properties: {
+          id: {
+            isVisible: { list: true, filter: true, show: true, edit: false },
+            position: 1
+          },
+          voucherId: {
+            isVisible: { list: true, filter: true, show: true, edit: false },
+            position: 2
+          },
+          customerId: {
+            isVisible: { list: true, filter: true, show: true, edit: false },
+            position: 3
+          },
+          redeemedAt: {
+            isVisible: { list: true, filter: true, show: true, edit: false },
+            position: 4
+          },
+          metadata: {
+            isVisible: { list: false, filter: false, show: true, edit: false },
+            position: 5
+          },
+          createdAt: {
+            isVisible: { list: true, filter: true, show: true, edit: false },
+            position: 6
+          },
+          updatedAt: {
+            isVisible: { list: false, filter: true, show: true, edit: false },
+            position: 7
+          }
+        },
+        actions: {
+          new: { isAccessible: false },
+          edit: { isAccessible: false },
+          delete: { isAccessible: false }
+        },
+        sort: {
+          sortBy: 'redeemedAt',
+          direction: 'desc'
+        },
+        listProperties: [
+          'id',
+          'voucherId',
+          'customerId',
+          'redeemedAt',
+          'createdAt'
+        ],
+        filterProperties: [
+          'voucherId',
+          'customerId',
+          'redeemedAt'
+        ],
+        showProperties: [
+          'id',
+          'voucherId',
+          'customerId',
+          'redeemedAt',
+          'metadata',
+          'createdAt',
+          'updatedAt'
+        ]
       }
     },
     {
@@ -276,11 +355,13 @@ const adminJsConfig = {
       labels: {
         ApiToken: 'API Tokens',
         Voucher: 'Vouchers',
+        VoucherRedemption: 'Voucher Redemptions',
         'discount.type': 'Discount Type',
         'discount.amountOff': 'Amount Off',
         'discount.percentOff': 'Percentage Off (%)',
         'redemption.quantity': 'Total Quantity',
         'redemption.dailyQuota': 'Daily Quota',
+        customerId: 'Customer ID',
       },
       messages: {
         successfullyCreated: 'Successfully created',

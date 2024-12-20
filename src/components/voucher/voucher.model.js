@@ -20,6 +20,11 @@ const Voucher = sequelize.define('Voucher', {
     allowNull: false,
     unique: true
   },
+  customerId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: null
+  },
   discount: {
     type: DataTypes.JSON,
     allowNull: false,
