@@ -95,28 +95,30 @@ export const redeemVoucher = async (req, res) => {
     }
 
     // Check if voucher has reached its maximum redemption
-    if (voucher.redeemedCount >= voucher.redemption.quantity) {
+    if (voucher.redeemedCount >= voucher.maxRedemptions) {
       await t.rollback();
       return res.status(400).json({ error: 'Voucher has reached maximum redemption' });
     }
 
-    // Check daily quota
-    const dailyRedemptions = voucher.dailyRedemptions[today] || 0;
-    if (dailyRedemptions >= voucher.redemption.dailyQuota) {
+    // Check daily quota using redemption history
+    const todayRedemptions = await VoucherRedemption.count({
+      where: {
+        voucherId: voucher.id,
+        redeemedAt: {
+          [Op.gte]: new Date(today),
+          [Op.lt]: new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
+        }
+      },
+      transaction: t
+    });
+
+    if (todayRedemptions >= voucher.dailyQuota) {
       await t.rollback();
       return res.status(400).json({ error: 'Daily quota exceeded' });
     }
 
-    // Update redemption count and daily redemptions
-    const dailyRedemptionsUpdate = {
-      ...voucher.dailyRedemptions,
-      [today]: dailyRedemptions + 1
-    };
-
-    await voucher.update({
-      redeemedCount: voucher.redeemedCount + 1,
-      dailyRedemptions: dailyRedemptionsUpdate
-    }, { transaction: t });
+    // Update redemption count
+    await voucher.increment('redeemedCount', { transaction: t });
 
     // Record redemption history
     const redemption = await VoucherRedemption.create({
@@ -128,9 +130,15 @@ export const redeemVoucher = async (req, res) => {
 
     await t.commit();
 
+    // Prepare discount information
+    const discount = {
+      type: voucher.discountType,
+      value: voucher.discountAmount
+    };
+
     res.json({
       message: 'Voucher redeemed successfully',
-      discount: voucher.discount,
+      discount,
       redemption: {
         id: redemption.id,
         redeemedAt: redemption.redeemedAt
@@ -201,19 +209,42 @@ export const validateVoucher = async (req, res) => {
     }
 
     // Check if voucher has reached its maximum redemption
-    if (voucher.redeemedCount >= voucher.redemption.quantity) {
+    if (voucher.redeemedCount >= voucher.maxRedemptions) {
       return res.status(400).json({ error: 'Voucher has reached maximum redemption' });
     }
 
-    // Check daily quota
-    const dailyRedemptions = voucher.dailyRedemptions[today] || 0;
-    if (dailyRedemptions >= voucher.redemption.dailyQuota) {
+    // Check daily quota using redemption history
+    const todayRedemptions = await VoucherRedemption.count({
+      where: {
+        voucherId: voucher.id,
+        redeemedAt: {
+          [Op.gte]: new Date(today),
+          [Op.lt]: new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
+        }
+      }
+    });
+
+    if (todayRedemptions >= voucher.dailyQuota) {
       return res.status(400).json({ error: 'Daily quota exceeded' });
     }
 
+    // Prepare discount information
+    const discount = {
+      type: voucher.discountType,
+      value: voucher.discountAmount
+    };
+
     res.json({
       message: 'Voucher is valid',
-      discount: voucher.discount
+      voucher: {
+        name: voucher.name,
+        code: voucher.code,
+        discount,
+        startDate: voucher.startDate,
+        expirationDate: voucher.expirationDate,
+        remainingRedemptions: voucher.maxRedemptions - voucher.redeemedCount,
+        remainingDailyQuota: voucher.dailyQuota - todayRedemptions
+      }
     });
   } catch (error) {
     console.error('Validate voucher error:', error);

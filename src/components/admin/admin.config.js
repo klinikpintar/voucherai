@@ -13,153 +13,160 @@ const adminJsConfig = {
       resource: Voucher,
       options: {
         navigation: {
-          name: 'Voucher Management',
-          icon: 'Tag',
+          name: 'Vouchers',
+          icon: 'Ticket'
         },
         properties: {
-          id: { 
+          id: {
             isVisible: { list: true, filter: true, show: true, edit: false },
-            isTitle: false,
             position: 1
-          },
-          name: {
-            isTitle: true,
-            isRequired: true,
-            position: 2
-          },
-          code: {
-            type: 'string',
-            position: 3
-          },
-          customerId: {
-            type: 'string',
-            isRequired: false,
-            position: 4,
-            description: 'If set, only this customer can redeem the voucher'
           },
           isActive: {
             isVisible: { list: true, filter: true, show: true, edit: true },
-            type: 'boolean',
-            position: 5
+            position: 2
           },
-          'discount.type': {
-            type: 'select',
-            isRequired: true,
+          name: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            position: 3
+          },
+          code: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            position: 4
+          },
+          discountType: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            position: 5,
             availableValues: [
-              { value: 'AMOUNT', label: 'Fixed Amount' },
-              { value: 'PERCENTAGE', label: 'Percentage' }
-            ],
-            position: 6
+              { value: 'PERCENTAGE', label: 'Percentage Off' },
+              { value: 'AMOUNT', label: 'Fixed Amount Off' }
+            ]
           },
-          'discount.amountOff': {
-            type: 'number',
-            isVisible: {
-              list: true,
-              filter: true,
-              show: true,
-              edit: ({ record }) => record?.params?.['discount.type'] === 'AMOUNT'
-            },
-            position: 7
+          discountAmount: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            position: 6,
+            type: 'number'
           },
-          'discount.percentOff': {
-            type: 'number',
-            min: 0,
-            max: 100,
-            isVisible: {
-              list: true,
-              filter: true,
-              show: true,
-              edit: ({ record }) => record?.params?.['discount.type'] === 'PERCENTAGE'
-            },
-            position: 8
+          maxRedemptions: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            position: 7,
+            type: 'number'
           },
-          'redemption.quantity': {
-            type: 'number',
-            isRequired: true,
-            min: 1,
-            position: 9
-          },
-          'redemption.dailyQuota': {
-            type: 'number',
-            isRequired: true,
-            min: 1,
-            position: 10
+          dailyQuota: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            position: 8,
+            type: 'number'
           },
           startDate: {
-            type: 'datetime',
-            isRequired: true,
-            position: 11
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            position: 9,
+            type: 'datetime'
           },
           expirationDate: {
-            type: 'datetime',
-            isRequired: true,
-            position: 12
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            position: 10,
+            type: 'datetime'
           },
           redeemedCount: {
             isVisible: { list: true, filter: true, show: true, edit: false },
-            type: 'number',
-            position: 13
+            position: 11,
+            type: 'number'
+          },
+          customerId: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            position: 12
           },
           createdAt: {
             isVisible: { list: true, filter: true, show: true, edit: false },
-            position: 14
+            position: 13
           },
           updatedAt: {
             isVisible: { list: false, filter: true, show: true, edit: false },
-            position: 15
+            position: 14
           }
         },
-        editProperties: [
-          'name',
-          'code',
-          'customerId',
-          'isActive',
-          'startDate',
-          'expirationDate',
-          'discount.type',
-          'discount.amountOff',
-          'discount.percentOff',
-          'redemption.quantity',
-          'redemption.dailyQuota'
-        ],
-        showProperties: [
-          'id',
-          'name',
-          'code',
-          'customerId',
-          'isActive',
-          'startDate',
-          'expirationDate',
-          'discount.type',
-          'discount.amountOff',
-          'discount.percentOff',
-          'redemption.quantity',
-          'redemption.dailyQuota',
-          'redeemedCount',
-          'createdAt',
-          'updatedAt'
-        ],
+        actions: {
+          new: {
+            before: async (request) => {
+              if (request.payload.discountType === 'PERCENTAGE' && request.payload.discountAmount > 100) {
+                throw new Error('Percentage discount cannot be more than 100%');
+              }
+              if (request.payload.discountAmount < 0) {
+                throw new Error('Discount amount cannot be negative');
+              }
+              if (request.payload.maxRedemptions < 1) {
+                throw new Error('Maximum redemptions must be at least 1');
+              }
+              if (request.payload.dailyQuota < 1) {
+                throw new Error('Daily quota must be at least 1');
+              }
+              if (request.payload.dailyQuota > request.payload.maxRedemptions) {
+                throw new Error('Daily quota cannot be greater than maximum redemptions');
+              }
+              return request;
+            }
+          },
+          edit: {
+            before: async (request) => {
+              if (request.payload.discountType === 'PERCENTAGE' && request.payload.discountAmount > 100) {
+                throw new Error('Percentage discount cannot be more than 100%');
+              }
+              if (request.payload.discountAmount < 0) {
+                throw new Error('Discount amount cannot be negative');
+              }
+              if (request.payload.maxRedemptions < 1) {
+                throw new Error('Maximum redemptions must be at least 1');
+              }
+              if (request.payload.dailyQuota < 1) {
+                throw new Error('Daily quota must be at least 1');
+              }
+              if (request.payload.dailyQuota > request.payload.maxRedemptions) {
+                throw new Error('Daily quota cannot be greater than maximum redemptions');
+              }
+              return request;
+            }
+          }
+        },
+        sort: {
+          sortBy: 'createdAt',
+          direction: 'desc'
+        },
         listProperties: [
+          'id',
+          'isActive',
           'name',
           'code',
-          'customerId',
-          'isActive',
-          'startDate',
-          'expirationDate',
-          'redeemedCount'
+          'discountType',
+          'discountAmount',
+          'maxRedemptions',
+          'redeemedCount',
+          'expirationDate'
         ],
         filterProperties: [
+          'isActive',
           'name',
           'code',
+          'discountType',
+          'discountAmount',
           'customerId',
-          'isActive',
           'startDate',
           'expirationDate'
         ],
-        sort: {
-          sortBy: 'createdAt',
-          direction: 'desc',
-        }
+        showProperties: [
+          'id',
+          'isActive',
+          'name',
+          'code',
+          'discountType',
+          'discountAmount',
+          'maxRedemptions',
+          'dailyQuota',
+          'customerId',
+          'startDate',
+          'expirationDate',
+          'redeemedCount',
+          'createdAt',
+          'updatedAt'
+        ]
       }
     },
     {

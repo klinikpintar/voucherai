@@ -20,78 +20,45 @@ const Voucher = sequelize.define('Voucher', {
     allowNull: false,
     unique: true
   },
-  customerId: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    defaultValue: null
-  },
-  discount: {
-    type: DataTypes.JSON,
+  discountType: {
+    type: DataTypes.ENUM('PERCENTAGE', 'AMOUNT'),
     allowNull: false,
-    validate: {
-      isValidDiscount(value) {
-        if (!value.type || !['AMOUNT', 'PERCENTAGE'].includes(value.type)) {
-          throw new Error('Invalid discount type');
-        }
-        if (value.type === 'AMOUNT' && (!value.amountOff || value.amountOff <= 0)) {
-          throw new Error('Invalid amount off value');
-        }
-        if (value.type === 'PERCENTAGE' && (!value.percentOff || value.percentOff <= 0 || value.percentOff > 100)) {
-          throw new Error('Invalid percentage off value');
-        }
-      }
-    }
+    defaultValue: 'PERCENTAGE'
   },
-  redemption: {
-    type: DataTypes.JSON,
+  discountAmount: {
+    type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
-    validate: {
-      isValidRedemption(value) {
-        if (!value.quantity || value.quantity <= 0) {
-          throw new Error('Invalid redemption quantity');
-        }
-        if (!value.dailyQuota || value.dailyQuota <= 0) {
-          throw new Error('Invalid daily quota');
-        }
-        if (value.dailyQuota > value.quantity) {
-          throw new Error('Daily quota cannot be greater than total quantity');
-        }
-      }
-    }
+    defaultValue: 0
+  },
+  maxRedemptions: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1
+  },
+  dailyQuota: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1
   },
   startDate: {
     type: DataTypes.DATE,
-    allowNull: false,
-    validate: {
-      isDate: true,
-      isAfterNow(value) {
-        if (value && new Date(value) < new Date()) {
-          throw new Error('Start date must be in the future');
-        }
-      }
-    }
+    allowNull: false
   },
   expirationDate: {
     type: DataTypes.DATE,
-    allowNull: false,
-    validate: {
-      isDate: true,
-      isAfterStartDate(value) {
-        if (value && new Date(value) <= new Date(this.startDate)) {
-          throw new Error('Expiration date must be after start date');
-        }
-      }
-    }
+    allowNull: false
   },
   redeemedCount: {
     type: DataTypes.INTEGER,
     defaultValue: 0
   },
-  dailyRedemptions: {
-    type: DataTypes.JSON,
-    defaultValue: {}
+  customerId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: null
   }
 }, {
+  tableName: 'Vouchers',
   timestamps: true,
   indexes: [
     {
