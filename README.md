@@ -12,6 +12,7 @@ A comprehensive voucher management system with AdminJS panel and REST API.
 
 ## Setup
 
+### Local Development
 1. Install dependencies:
 ```bash
 npm install
@@ -30,6 +31,17 @@ npx sequelize-cli db:migrate
 4. Start the server:
 ```bash
 npm start
+```
+
+### Docker Setup
+1. Build the Docker image:
+```bash
+docker build -t voucher-management .
+```
+
+2. Run the container:
+```bash
+docker run -d -p 3000:3000 --name voucher-app voucher-management
 ```
 
 ## Access Points

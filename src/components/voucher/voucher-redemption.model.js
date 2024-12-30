@@ -9,7 +9,7 @@ const VoucherRedemption = sequelize.define('VoucherRedemption', {
     autoIncrement: true
   },
   voucherId: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
     allowNull: false,
     references: {
       model: 'Vouchers',

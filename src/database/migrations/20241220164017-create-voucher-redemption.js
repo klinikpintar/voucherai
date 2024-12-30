@@ -11,7 +11,7 @@ module.exports = {
         type: Sequelize.INTEGER
       },
       voucherId: {
-        type: Sequelize.INTEGER,
+        type: Sequelize.UUID,
         allowNull: false,
         references: {
           model: 'Vouchers',
