@@ -66,7 +66,31 @@ All API endpoints require a Bearer token which can be generated from the admin p
 - DELETE endpoint `/api/v1/vouchers/{code}` to remove vouchers
 - Request logging middleware to track API requests with timing information
 - Improved error handling for voucher creation with detailed error messages
+- GitHub Actions workflow for automated Docker image builds
+- Container Registry integration for Docker image distribution
 
 #### Changed
 - Enhanced API error responses to include more detailed information
 - Updated Swagger documentation with new delete endpoint
+
+## CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration and delivery:
+
+### Docker Image Publishing
+- Images are automatically built and published to GitHub Container Registry
+- Tags are created for:
+  - Branch names (e.g., `develop`, `main`)
+  - Git SHA (for precise version tracking)
+  - Latest tag (only for main branch)
+
+### Pull Images
+```bash
+# Pull latest main branch image
+docker pull ghcr.io/[username]/voucher-management:latest
+
+# Pull specific branch
+docker pull ghcr.io/[username]/voucher-management:develop
+```
+
+Replace `[username]` with your GitHub username.
