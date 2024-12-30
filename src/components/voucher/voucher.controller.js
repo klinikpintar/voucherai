@@ -9,7 +9,17 @@ export const createVoucher = async (req, res) => {
     res.status(201).json(voucher);
   } catch (error) {
     console.error('Create voucher error:', error);
-    res.status(400).json({ error: 'Invalid voucher data' });
+    const errorMessage = error.name === 'SequelizeValidationError' 
+      ? error.errors.map(err => err.message).join(', ')
+      : error.name === 'SequelizeUniqueConstraintError'
+      ? 'A voucher with these details already exists'
+      : 'Failed to create voucher';
+      
+    res.status(400).json({
+      status: 'error',
+      message: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 

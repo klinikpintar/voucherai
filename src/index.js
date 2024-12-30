@@ -32,6 +32,16 @@ AdminJS.registerAdapter({ Database, Resource });
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - Status: ${res.statusCode} - Duration: ${duration}ms`);
+  });
+  next();
+});
+
 // Session store setup
 const SessionStore = SequelizeStore(session.Store);
 const sessionStore = new SessionStore({
