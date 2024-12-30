@@ -5,7 +5,8 @@ import {
   redeemVoucher,
   updateVoucher,
   validateVoucher,
-  getRedemptionHistory
+  getRedemptionHistory,
+  deleteVoucher
 } from './voucher.controller.js';
 import { authenticateToken } from '../auth/auth.middleware.js';
 
@@ -344,5 +345,38 @@ router.post('/validate', authenticateToken, validateVoucher);
  *                   type: integer
  */
 router.get('/redemptions', authenticateToken, getRedemptionHistory);
+
+/**
+ * @swagger
+ * /api/v1/vouchers/{code}:
+ *   delete:
+ *     summary: Delete a voucher
+ *     tags: [Vouchers]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Voucher code
+ *     responses:
+ *       200:
+ *         description: Voucher deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Voucher'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       404:
+ *         description: Voucher not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.delete('/:code', authenticateToken, deleteVoucher);
 
 export default router;

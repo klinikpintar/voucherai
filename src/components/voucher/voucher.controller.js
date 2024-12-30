@@ -295,3 +295,18 @@ export const getRedemptionHistory = async (req, res) => {
     res.status(500).json({ error: 'Error getting redemption history' });
   }
 };
+
+export const deleteVoucher = async (req, res) => {
+  const code = req.params.code;
+  try {
+    const deleted = await Voucher.destroy({where: { code }});
+    if (deleted) {
+      res.json({ message: 'Voucher deleted successfully' });
+    } else {
+      res.status(404).json({ error: 'Voucher not found' });
+    }
+  } catch (error) {
+    console.error('Delete voucher error:', error);
+    res.status(500).json({ error: 'Error deleting voucher' });
+  }
+};
