@@ -92,7 +92,8 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: `http://localhost:${PORT}`,
+        url: '/',
+        description: 'Current Server'
       },
     ],
     components: {
@@ -160,7 +161,10 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 // Middleware
 app.use(express.json());
+// Enable trust proxy
+app.enable("trust proxy");
 app.use(adminJs.options.rootPath, adminRouter);
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
