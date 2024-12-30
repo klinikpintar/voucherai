@@ -46,3 +46,15 @@ npm start
 ## API Authentication
 
 All API endpoints require a Bearer token which can be generated from the admin panel.
+
+## Changelog
+
+### [2024-12-30]
+#### Added
+- DELETE endpoint `/api/v1/vouchers/{code}` to remove vouchers
+- Request logging middleware to track API requests with timing information
+- Improved error handling for voucher creation with detailed error messages
+
+#### Changed
+- Enhanced API error responses to include more detailed information
+- Updated Swagger documentation with new delete endpoint
