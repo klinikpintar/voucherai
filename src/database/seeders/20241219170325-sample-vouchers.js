@@ -14,18 +14,13 @@ module.exports = {
         name: 'Welcome Discount',
         code: 'WELCOME2024',
         isActive: true,
-        discount: {
-          type: 'PERCENTAGE',
-          percentOff: 20
-        },
-        redemption: {
-          quantity: 100,
-          dailyQuota: 10
-        },
+        discountType: 'PERCENTAGE',
+        discountAmount: 20,
+        maxRedemptions: 100,
+        dailyQuota: 10,
         startDate: now,
         expirationDate: futureDate,
         redeemedCount: 0,
-        dailyRedemptions: {},
         createdAt: now,
         updatedAt: now
       },
@@ -34,18 +29,13 @@ module.exports = {
         name: 'Fixed Discount',
         code: 'FIXED50',
         isActive: true,
-        discount: {
-          type: 'AMOUNT',
-          amountOff: 50000
-        },
-        redemption: {
-          quantity: 50,
-          dailyQuota: 5
-        },
+        discountType: 'AMOUNT',
+        discountAmount: 50000,
+        maxRedemptions: 50,
+        dailyQuota: 5,
         startDate: now,
         expirationDate: futureDate,
         redeemedCount: 0,
-        dailyRedemptions: {},
         createdAt: now,
         updatedAt: now
       }

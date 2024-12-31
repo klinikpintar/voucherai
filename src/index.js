@@ -32,6 +32,16 @@ AdminJS.registerAdapter({ Database, Resource });
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - Status: ${res.statusCode} - Duration: ${duration}ms`);
+  });
+  next();
+});
+
 // Session store setup
 const SessionStore = SequelizeStore(session.Store);
 const sessionStore = new SessionStore({
@@ -82,7 +92,8 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: `http://localhost:${PORT}`,
+        url: '/',
+        description: 'Current Server'
       },
     ],
     components: {
@@ -150,7 +161,10 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 // Middleware
 app.use(express.json());
+// Enable trust proxy
+app.enable("trust proxy");
 app.use(adminJs.options.rootPath, adminRouter);
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
