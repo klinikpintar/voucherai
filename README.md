@@ -61,6 +61,21 @@ All API endpoints require a Bearer token which can be generated from the admin p
 
 ## Changelog
 
+### [2024-12-31]
+#### Added
+- Docker Hub integration for broader image distribution
+- Admin seeder in Docker entrypoint for automatic admin user creation
+- Swagger UI with dynamic base URL support for better deployment flexibility
+
+#### Changed
+- Updated Docker entrypoint to run only admin seeder for faster startup
+- Modified Swagger configuration to use relative URL for better portability
+- Updated admin seeder to use CommonJS format for sequelize-cli compatibility
+
+#### Fixed
+- Fixed module format compatibility issues in admin seeder
+- Fixed Swagger server URL to work correctly behind reverse proxies
+
 ### [2024-12-30]
 #### Added
 - DELETE endpoint `/api/v1/vouchers/{code}` to remove vouchers
