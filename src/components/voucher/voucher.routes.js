@@ -60,6 +60,16 @@ const router = express.Router();
  *               maximum: 100
  *               description: Percentage to discount (required if type is PERCENTAGE)
  *               example: 25
+ *             amount_limit:
+ *               type: number
+ *               minimum: 0
+ *               description: Maximum discount amount (for percentage discounts)
+ *               example: 500
+ *             minAmount:
+ *               type: number
+ *               minimum: 0
+ *               description: Minimum transaction amount required to use this voucher
+ *               example: 1000
  *         redemption:
  *           type: object
  *           required:
@@ -104,6 +114,7 @@ const router = express.Router();
  *             discount:
  *               type: "AMOUNT"
  *               amount_off: 300
+ *               minAmount: 1000
  *             redemption:
  *               quantity: 33
  *               daily_quota: 3
@@ -118,6 +129,8 @@ const router = express.Router();
  *             discount:
  *               type: "PERCENTAGE"
  *               percent_off: 25
+ *               amount_limit: 500
+ *               minAmount: 1000
  *             redemption:
  *               quantity: 100
  *               daily_quota: 5
@@ -142,7 +155,8 @@ const router = express.Router();
  *         "code": "FIXED300",
  *         "discount": {
  *           "type": "AMOUNT",
- *           "amount_off": 300
+ *           "amount_off": 300,
+ *           "minAmount": 1000
  *         },
  *         "redemption": {
  *           "quantity": 33,
@@ -162,7 +176,9 @@ const router = express.Router();
  *         "code": "PERCENT25",
  *         "discount": {
  *           "type": "PERCENTAGE",
- *           "percent_off": 25
+ *           "percent_off": 25,
+ *           "amount_limit": 500,
+ *           "minAmount": 1000
  *         },
  *         "redemption": {
  *           "quantity": 100,
@@ -323,6 +339,12 @@ router.post('/redeem', authenticateToken, redeemVoucher);
  *                     type: number
  *                     minimum: 0
  *                     maximum: 100
+ *                   amount_limit:
+ *                     type: number
+ *                     minimum: 0
+ *                   minAmount:
+ *                     type: number
+ *                     minimum: 0
  *               redemption:
  *                 type: object
  *                 required:

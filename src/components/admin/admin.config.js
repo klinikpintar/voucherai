@@ -52,17 +52,18 @@ const adminJsConfig = {
               step: 'any'
             }
           },
-          maxRedemptions: {
+          maxDiscountAmount: {
             isVisible: { list: true, filter: true, show: true, edit: true },
             position: 7,
-            isRequired: true,
+            isRequired: false,
             type: 'number',
             props: {
               type: 'number',
-              min: 1
+              min: 0,
+              step: 'any'
             }
           },
-          dailyQuota: {
+          maxRedemptions: {
             isVisible: { list: true, filter: true, show: true, edit: true },
             position: 8,
             isRequired: true,
@@ -72,34 +73,44 @@ const adminJsConfig = {
               min: 1
             }
           },
-          startDate: {
+          dailyQuota: {
             isVisible: { list: true, filter: true, show: true, edit: true },
             position: 9,
-            type: 'datetime',
-            isRequired: true
+            isRequired: true,
+            type: 'number',
+            props: {
+              type: 'number',
+              min: 1
+            }
           },
-          expirationDate: {
+          startDate: {
             isVisible: { list: true, filter: true, show: true, edit: true },
             position: 10,
             type: 'datetime',
             isRequired: true
           },
+          expirationDate: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            position: 11,
+            type: 'datetime',
+            isRequired: true
+          },
           redeemedCount: {
             isVisible: { list: true, filter: false, show: true, edit: false },
-            position: 11,
+            position: 12,
             type: 'number'
           },
           customerId: {
             isVisible: { list: true, filter: true, show: true, edit: true },
-            position: 12
+            position: 13
           },
           createdAt: {
             isVisible: { list: true, filter: true, show: true, edit: false },
-            position: 13
+            position: 14
           },
           updatedAt: {
             isVisible: { list: false, filter: true, show: true, edit: false },
-            position: 14
+            position: 15
           }
         },
         actions: {
@@ -130,6 +141,18 @@ const adminJsConfig = {
                 throw new Error('Discount amount cannot be negative');
               }
 
+              // Validate max discount amount
+              const maxDiscountAmount = parseFloat(request.payload.maxDiscountAmount);
+              const discountAmount = parseFloat(request.payload.discountAmount);
+
+              if (maxDiscountAmount < 0) {
+                throw new Error('Maximum discount amount cannot be negative');
+              }
+
+              if (maxDiscountAmount > 0 && discountAmount > maxDiscountAmount) {
+                throw new Error('Discount amount cannot be greater than maximum discount amount');
+              }
+
               // Convert maxRedemptions and dailyQuota to integers
               const maxRedemptions = parseInt(request.payload.maxRedemptions, 10);
               const dailyQuota = parseInt(request.payload.dailyQuota, 10);
@@ -137,7 +160,8 @@ const adminJsConfig = {
               console.log('Parsed values:', {
                 maxRedemptions,
                 dailyQuota,
-                discountAmount: parseFloat(request.payload.discountAmount)
+                discountAmount,
+                maxDiscountAmount
               });
 
               if (isNaN(maxRedemptions) || maxRedemptions < 1) {
@@ -158,10 +182,11 @@ const adminJsConfig = {
                 throw new Error('Expiration date must be after start date');
               }
 
-              // Update the request payload with the parsed integers
+              // Update the request payload with the parsed values
               request.payload.maxRedemptions = maxRedemptions;
               request.payload.dailyQuota = dailyQuota;
-              request.payload.discountAmount = parseFloat(request.payload.discountAmount);
+              request.payload.discountAmount = discountAmount;
+              request.payload.maxDiscountAmount = maxDiscountAmount || 0;
 
               console.log('Final payload:', JSON.stringify(request.payload, null, 2));
               return request;
@@ -169,66 +194,8 @@ const adminJsConfig = {
           },
           edit: {
             before: async (request) => {
-              console.log('==== BEFORE HOOK TRIGGERED ====');
-              console.log('Action:', request.method);
-              console.log('Record:', request.record);
-              console.log('Payload:', JSON.stringify(request.payload, null, 2));
-              console.log('========================');
-
-              // Only process if we have data to validate (POST request)
-              if (request.method !== 'post') {
-                return request;
-              }
-
-              if (!request.payload) {
-                console.log('No payload to process');
-                return request;
-              }
-
-              console.log('Processing payload for validation...');
-
-              if (request.payload.discountType === 'PERCENTAGE' && parseFloat(request.payload.discountAmount) > 100) {
-                throw new Error('Percentage discount cannot be more than 100%');
-              }
-              if (parseFloat(request.payload.discountAmount) < 0) {
-                throw new Error('Discount amount cannot be negative');
-              }
-
-              // Convert maxRedemptions and dailyQuota to integers
-              const maxRedemptions = parseInt(request.payload.maxRedemptions, 10);
-              const dailyQuota = parseInt(request.payload.dailyQuota, 10);
-
-              console.log('Parsed values:', {
-                maxRedemptions,
-                dailyQuota,
-                discountAmount: parseFloat(request.payload.discountAmount)
-              });
-
-              if (isNaN(maxRedemptions) || maxRedemptions < 1) {
-                throw new Error('Maximum redemptions must be at least 1');
-              }
-              if (isNaN(dailyQuota) || dailyQuota < 1) {
-                throw new Error('Daily quota must be at least 1');
-              }
-              if (dailyQuota > maxRedemptions) {
-                throw new Error('Daily quota cannot be greater than maximum redemptions');
-              }
-
-              // Validate dates
-              const startDate = new Date(request.payload.startDate);
-              const expirationDate = new Date(request.payload.expirationDate);
-              
-              if (expirationDate <= startDate) {
-                throw new Error('Expiration date must be after start date');
-              }
-
-              // Update the request payload with the parsed integers
-              request.payload.maxRedemptions = maxRedemptions;
-              request.payload.dailyQuota = dailyQuota;
-              request.payload.discountAmount = parseFloat(request.payload.discountAmount);
-
-              console.log('Final payload:', JSON.stringify(request.payload, null, 2));
-              return request;
+              // Reuse the same validation logic from new action
+              return adminJsConfig.resources[0].options.actions.new.before(request);
             }
           }
         },

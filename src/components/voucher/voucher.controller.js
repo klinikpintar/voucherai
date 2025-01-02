@@ -18,8 +18,9 @@ export const createVoucher = async (req, res) => {
     const voucherData = {
       name,
       code,
-      discountType: discount.type,
-      discountAmount: discount.amount_off,
+      discountType: discount.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENTAGE',
+      discountAmount: discount.type === 'AMOUNT' ? discount.amount_off : discount.percent_off,
+      maxDiscountAmount: discount.amount_limit || 0,
       maxRedemptions: redemption.quantity,
       dailyQuota: redemption.daily_quota,
       startDate: start_date,
@@ -28,7 +29,26 @@ export const createVoucher = async (req, res) => {
     };
 
     const voucher = await Voucher.create(voucherData);
-    res.status(201).json(voucher);
+    
+    // Format response according to reference
+    const response = {
+      name: voucher.name,
+      code: voucher.code,
+      discount: {
+        type: voucher.discountType === 'AMOUNT' ? 'AMOUNT' : 'PERCENTAGE',
+        [voucher.discountType === 'AMOUNT' ? 'amount_off' : 'percent_off']: voucher.discountAmount,
+        amount_limit: voucher.maxDiscountAmount
+      },
+      redemption: {
+        quantity: voucher.maxRedemptions,
+        dailyQuota: voucher.dailyQuota
+      },
+      startDate: voucher.startDate,
+      expirationDate: voucher.expirationDate,
+      isActive: voucher.isActive
+    };
+
+    res.status(201).json(response);
   } catch (error) {
     console.error('Create voucher error:', error);
     const errorMessage = error.name === 'SequelizeValidationError' 

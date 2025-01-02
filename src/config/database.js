@@ -6,7 +6,7 @@ import 'dotenv/config';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbPath = path.join(__dirname, '../database/database.sqlite');
+const dbPath = path.join(__dirname, '../../../database.sqlite');
 
 // Check if PostgreSQL credentials are provided
 const usePostgres = process.env.POSTGRES_HOST && 

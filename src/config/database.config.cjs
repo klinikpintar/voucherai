@@ -20,7 +20,7 @@ const db = usePostgres ? {
   }
 } : {
   dialect: 'sqlite',
-  storage: path.join(__dirname, '../database/database.sqlite')
+  storage: path.join(__dirname, '../../../database.sqlite')
 }
 
 const config = {

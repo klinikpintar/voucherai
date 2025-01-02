@@ -30,6 +30,11 @@ const Voucher = sequelize.define('Voucher', {
     allowNull: false,
     defaultValue: 0
   },
+  maxDiscountAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+    defaultValue: 0
+  },
   maxRedemptions: {
     type: DataTypes.INTEGER,
     allowNull: false,
