@@ -23,8 +23,8 @@ const router = express.Router();
  *         - code
  *         - discount
  *         - redemption
- *         - startDate
- *         - expirationDate
+ *         - start_date
+ *         - expiration_date
  *       properties:
  *         id:
  *           type: string
@@ -33,12 +33,14 @@ const router = express.Router();
  *         name:
  *           type: string
  *           description: Name of the voucher
+ *         type:
+ *           type: string
+ *           enum: [DISCOUNT_VOUCHER]
+ *           default: DISCOUNT_VOUCHER
+ *           description: Type of the voucher
  *         code:
  *           type: string
  *           description: Unique voucher code
- *         isActive:
- *           type: boolean
- *           default: true
  *         discount:
  *           type: object
  *           required:
@@ -47,39 +49,81 @@ const router = express.Router();
  *             type:
  *               type: string
  *               enum: [AMOUNT, PERCENTAGE]
- *             amountOff:
+ *               description: Type of discount - AMOUNT for fixed amount, PERCENTAGE for percentage off
+ *             amount_off:
  *               type: number
- *               description: Required if type is AMOUNT
- *             percentOff:
+ *               description: Amount to discount (required if type is AMOUNT)
+ *               example: 300
+ *             percent_off:
  *               type: number
- *               description: Required if type is PERCENTAGE
+ *               minimum: 0
+ *               maximum: 100
+ *               description: Percentage to discount (required if type is PERCENTAGE)
+ *               example: 25
  *         redemption:
  *           type: object
  *           required:
  *             - quantity
- *             - dailyQuota
  *           properties:
  *             quantity:
  *               type: integer
  *               minimum: 1
- *             dailyQuota:
+ *               description: Maximum number of times this voucher can be redeemed
+ *             daily_quota:
  *               type: integer
  *               minimum: 1
- *         startDate:
+ *               description: Maximum number of redemptions per day
+ *         start_date:
  *           type: string
  *           format: date-time
- *         expirationDate:
+ *           description: When the voucher becomes valid
+ *         expiration_date:
  *           type: string
  *           format: date-time
+ *           description: When the voucher expires
+ *         active:
+ *           type: boolean
+ *           default: true
+ *           description: Whether the voucher is active
  *         redeemedCount:
  *           type: integer
  *           default: 0
+ *           description: Number of times this voucher has been redeemed
  *         createdAt:
  *           type: string
  *           format: date-time
  *         updatedAt:
  *           type: string
  *           format: date-time
+ *       examples:
+ *         amount_discount:
+ *           value:
+ *             name: "Fixed Amount Discount"
+ *             type: "DISCOUNT_VOUCHER"
+ *             code: "FIXED300"
+ *             discount:
+ *               type: "AMOUNT"
+ *               amount_off: 300
+ *             redemption:
+ *               quantity: 33
+ *               daily_quota: 3
+ *             start_date: "2025-01-02T12:26:00+07:00"
+ *             expiration_date: "2025-01-31T12:26:00+07:00"
+ *             active: true
+ *         percentage_discount:
+ *           value:
+ *             name: "25% Off Discount"
+ *             type: "DISCOUNT_VOUCHER"
+ *             code: "PERCENT25"
+ *             discount:
+ *               type: "PERCENTAGE"
+ *               percent_off: 25
+ *             redemption:
+ *               quantity: 100
+ *               daily_quota: 5
+ *             start_date: "2025-01-02T12:26:00+07:00"
+ *             expiration_date: "2025-01-31T12:26:00+07:00"
+ *             active: true
  */
 
 /**
@@ -87,6 +131,48 @@ const router = express.Router();
  * /api/v1/vouchers:
  *   post:
  *     summary: Create a new voucher
+ *     description: |
+ *       Create a new voucher with either fixed amount or percentage discount.
+ *       
+ *       For AMOUNT type discount:
+ *       ```json
+ *       {
+ *         "name": "Fixed Amount Discount",
+ *         "type": "DISCOUNT_VOUCHER",
+ *         "code": "FIXED300",
+ *         "discount": {
+ *           "type": "AMOUNT",
+ *           "amount_off": 300
+ *         },
+ *         "redemption": {
+ *           "quantity": 33,
+ *           "daily_quota": 3
+ *         },
+ *         "start_date": "2025-01-02T12:26:00+07:00",
+ *         "expiration_date": "2025-01-31T12:26:00+07:00",
+ *         "active": true
+ *       }
+ *       ```
+ *       
+ *       For PERCENTAGE type discount:
+ *       ```json
+ *       {
+ *         "name": "25% Off Discount",
+ *         "type": "DISCOUNT_VOUCHER",
+ *         "code": "PERCENT25",
+ *         "discount": {
+ *           "type": "PERCENTAGE",
+ *           "percent_off": 25
+ *         },
+ *         "redemption": {
+ *           "quantity": 100,
+ *           "daily_quota": 5
+ *         },
+ *         "start_date": "2025-01-02T12:26:00+07:00",
+ *         "expiration_date": "2025-01-31T12:26:00+07:00",
+ *         "active": true
+ *       }
+ *       ```
  *     tags: [Vouchers]
  *     security:
  *       - BearerAuth: []
@@ -220,18 +306,42 @@ router.post('/redeem', authenticateToken, redeemVoucher);
  *             properties:
  *               name:
  *                 type: string
- *               isActive:
- *                 type: boolean
+ *               type:
+ *                 type: string
+ *                 enum: [DISCOUNT_VOUCHER]
  *               discount:
- *                 $ref: '#/components/schemas/Voucher/properties/discount'
+ *                 type: object
+ *                 required:
+ *                   - type
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     enum: [AMOUNT, PERCENTAGE]
+ *                   amount_off:
+ *                     type: number
+ *                   percent_off:
+ *                     type: number
+ *                     minimum: 0
+ *                     maximum: 100
  *               redemption:
- *                 $ref: '#/components/schemas/Voucher/properties/redemption'
- *               startDate:
+ *                 type: object
+ *                 required:
+ *                   - quantity
+ *                 properties:
+ *                   quantity:
+ *                     type: integer
+ *                     minimum: 1
+ *                   daily_quota:
+ *                     type: integer
+ *                     minimum: 1
+ *               start_date:
  *                 type: string
  *                 format: date-time
- *               expirationDate:
+ *               expiration_date:
  *                 type: string
  *                 format: date-time
+ *               active:
+ *                 type: boolean
  *     responses:
  *       200:
  *         description: Voucher updated successfully

@@ -5,7 +5,29 @@ import { Op } from 'sequelize';
 
 export const createVoucher = async (req, res) => {
   try {
-    const voucher = await Voucher.create(req.body);
+    const { 
+      name, 
+      code, 
+      discount, 
+      redemption, 
+      start_date, 
+      expiration_date, 
+      active 
+    } = req.body;
+
+    const voucherData = {
+      name,
+      code,
+      discountType: discount.type,
+      discountAmount: discount.amount_off,
+      maxRedemptions: redemption.quantity,
+      dailyQuota: redemption.daily_quota,
+      startDate: start_date,
+      expirationDate: expiration_date,
+      isActive: active
+    };
+
+    const voucher = await Voucher.create(voucherData);
     res.status(201).json(voucher);
   } catch (error) {
     console.error('Create voucher error:', error);
