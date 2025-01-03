@@ -232,16 +232,6 @@ export const redeemVoucher = async (req, res) => {
 export const updateVoucher = async (req, res) => {
   try {
     const { code } = req.params;
-    const {
-      name,
-      discount,
-      redemption,
-      start_date,
-      expiration_date,
-      is_active,
-      customer_id
-    } = req.body;
-
     const voucher = await Voucher.findOne({ where: { code } });
 
     if (!voucher) {
@@ -250,23 +240,32 @@ export const updateVoucher = async (req, res) => {
       });
     }
 
-    const updateData = {
-      name,
-      discountType: discount?.type,
-      discountAmount: discount?.type === 'AMOUNT' ? discount.amount_off : discount.percent_off,
-      maxDiscountAmount: discount?.amount_limit || 0,
-      maxRedemptions: redemption?.quantity,
-      dailyQuota: redemption?.daily_quota,
-      startDate: start_date,
-      expirationDate: expiration_date,
-      isActive: is_active,
-      customerId: customer_id
-    };
+    const updateData = {};
+    const { name, discount, redemption, start_date, expiration_date, is_active, customer_id } = req.body;
 
-    // Remove undefined values
-    Object.keys(updateData).forEach(key => 
-      updateData[key] === undefined && delete updateData[key]
-    );
+    // Only add fields that are present in the request
+    if (name !== undefined) updateData.name = name;
+    if (is_active !== undefined) updateData.isActive = is_active;
+    if (start_date !== undefined) updateData.startDate = start_date;
+    if (expiration_date !== undefined) updateData.expirationDate = expiration_date;
+    if (customer_id !== undefined) updateData.customerId = customer_id;
+
+    // Handle discount object if present
+    if (discount) {
+      if (discount.type !== undefined) updateData.discountType = discount.type;
+      if (discount.type === 'AMOUNT' && discount.amount_off !== undefined) {
+        updateData.discountAmount = discount.amount_off;
+      } else if (discount.type === 'PERCENTAGE' && discount.percent_off !== undefined) {
+        updateData.discountAmount = discount.percent_off;
+      }
+      if (discount.amount_limit !== undefined) updateData.maxDiscountAmount = discount.amount_limit;
+    }
+
+    // Handle redemption object if present
+    if (redemption) {
+      if (redemption.quantity !== undefined) updateData.maxRedemptions = redemption.quantity;
+      if (redemption.daily_quota !== undefined) updateData.dailyQuota = redemption.daily_quota;
+    }
 
     await voucher.update(updateData);
     

@@ -266,6 +266,7 @@ const router = express.Router();
  *               $ref: '#/components/schemas/Error'
  *   put:
  *     summary: Update a voucher
+ *     description: Update an existing voucher. All fields are optional - only the provided fields will be updated.
  *     tags: [Vouchers]
  *     security:
  *       - bearerAuth: []
@@ -273,10 +274,11 @@ const router = express.Router();
  *       - in: path
  *         name: code
  *         required: true
+ *         description: Voucher code to update
  *         schema:
  *           type: string
  *     requestBody:
- *       required: true
+ *       required: false
  *       content:
  *         application/json:
  *           schema:
@@ -284,25 +286,47 @@ const router = express.Router();
  *             properties:
  *               name:
  *                 type: string
+ *                 description: New name for the voucher
  *               discount:
- *                 $ref: '#/components/schemas/Discount'
+ *                 type: object
+ *                 description: Discount details to update
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     enum: [AMOUNT, PERCENTAGE]
+ *                   amount_off:
+ *                     type: number
+ *                     description: Required when type is AMOUNT
+ *                   percent_off:
+ *                     type: number
+ *                     description: Required when type is PERCENTAGE
+ *                   amount_limit:
+ *                     type: number
+ *                     description: Maximum discount amount for percentage discounts
  *               redemption:
  *                 type: object
+ *                 description: Redemption rules to update
  *                 properties:
  *                   quantity:
  *                     type: integer
+ *                     description: Maximum number of redemptions allowed
  *                   daily_quota:
  *                     type: integer
+ *                     description: Maximum redemptions per day
  *               start_date:
  *                 type: string
  *                 format: date-time
+ *                 description: New start date for the voucher
  *               expiration_date:
  *                 type: string
  *                 format: date-time
+ *                 description: New expiration date for the voucher
  *               is_active:
  *                 type: boolean
+ *                 description: Set voucher active status
  *               customer_id:
  *                 type: string
+ *                 description: Update customer ID restriction
  *     responses:
  *       200:
  *         description: Voucher updated successfully
