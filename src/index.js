@@ -97,14 +97,6 @@ const swaggerOptions = {
       },
     ],
     components: {
-      securitySchemes: {
-        BearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-          description: 'Enter your API token'
-        }
-      },
       schemas: {
         Error: {
           type: 'object',
@@ -147,12 +139,7 @@ const swaggerOptions = {
           }
         }
       }
-    },
-    security: [
-      {
-        BearerAuth: []
-      }
-    ]
+    }
   },
   apis: ['./src/components/**/voucher.routes.js'],
 };
@@ -168,7 +155,7 @@ app.use(adminJs.options.rootPath, adminRouter);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
-app.use('/api/v1/vouchers', voucherRoutes);
+app.use('/api/vouchers', voucherRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -1,13 +1,5 @@
 import express from 'express';
-import {
-  createVoucher,
-  listVouchers,
-  redeemVoucher,
-  updateVoucher,
-  validateVoucher,
-  getRedemptionHistory,
-  deleteVoucher
-} from './voucher.controller.js';
+import { createVoucher, getVouchers, getVoucherByCode, redeemVoucher, getRedemptionHistory } from './voucher.controller.js';
 import { authenticateToken } from '../auth/auth.middleware.js';
 
 const router = express.Router();
@@ -15,227 +7,208 @@ const router = express.Router();
 /**
  * @swagger
  * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
  *   schemas:
- *     Voucher:
+ *     Discount:
  *       type: object
- *       required:
- *         - name
- *         - code
- *         - discount
- *         - redemption
- *         - start_date
- *         - expiration_date
  *       properties:
- *         id:
- *           type: string
- *           format: uuid
- *           description: Auto-generated voucher ID
- *         name:
- *           type: string
- *           description: Name of the voucher
  *         type:
  *           type: string
- *           enum: [DISCOUNT_VOUCHER]
- *           default: DISCOUNT_VOUCHER
- *           description: Type of the voucher
+ *           enum: [AMOUNT, PERCENTAGE]
+ *         amount_off:
+ *           type: number
+ *           description: Amount off when type is AMOUNT
+ *         percent_off:
+ *           type: number
+ *           description: Percentage off when type is PERCENTAGE
+ *         amount_limit:
+ *           type: number
+ *           description: Maximum discount amount when type is PERCENTAGE
+ *     Redemption:
+ *       type: object
+ *       properties:
+ *         quantity:
+ *           type: integer
+ *           description: Maximum number of times this voucher can be redeemed
+ *         daily_quota:
+ *           type: integer
+ *           description: Maximum number of redemptions allowed per day
+ *         redeemed_count:
+ *           type: integer
+ *           description: Number of times this voucher has been redeemed
+ *     VoucherResponse:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *         name:
+ *           type: string
  *         code:
  *           type: string
- *           description: Unique voucher code
  *         discount:
- *           type: object
- *           required:
- *             - type
- *           properties:
- *             type:
- *               type: string
- *               enum: [AMOUNT, PERCENTAGE]
- *               description: Type of discount - AMOUNT for fixed amount, PERCENTAGE for percentage off
- *             amount_off:
- *               type: number
- *               description: Amount to discount (required if type is AMOUNT)
- *               example: 300
- *             percent_off:
- *               type: number
- *               minimum: 0
- *               maximum: 100
- *               description: Percentage to discount (required if type is PERCENTAGE)
- *               example: 25
- *             amount_limit:
- *               type: number
- *               minimum: 0
- *               description: Maximum discount amount (for percentage discounts)
- *               example: 500
- *             minAmount:
- *               type: number
- *               minimum: 0
- *               description: Minimum transaction amount required to use this voucher
- *               example: 1000
+ *           $ref: '#/components/schemas/Discount'
  *         redemption:
- *           type: object
- *           required:
- *             - quantity
- *           properties:
- *             quantity:
- *               type: integer
- *               minimum: 1
- *               description: Maximum number of times this voucher can be redeemed
- *             daily_quota:
- *               type: integer
- *               minimum: 1
- *               description: Maximum number of redemptions per day
+ *           $ref: '#/components/schemas/Redemption'
  *         start_date:
  *           type: string
  *           format: date-time
- *           description: When the voucher becomes valid
  *         expiration_date:
  *           type: string
  *           format: date-time
- *           description: When the voucher expires
- *         active:
+ *         is_active:
  *           type: boolean
- *           default: true
- *           description: Whether the voucher is active
- *         redeemedCount:
+ *         customer_id:
+ *           type: string
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *     RedemptionResponse:
+ *       type: object
+ *       properties:
+ *         id:
  *           type: integer
- *           default: 0
- *           description: Number of times this voucher has been redeemed
- *         createdAt:
+ *         voucher_id:
+ *           type: integer
+ *         customer_id:
+ *           type: string
+ *         discount_amount:
+ *           type: number
+ *         redeemed_at:
  *           type: string
  *           format: date-time
- *         updatedAt:
+ *         metadata:
+ *           type: object
+ *         created_at:
  *           type: string
  *           format: date-time
- *       examples:
- *         amount_discount:
- *           value:
- *             name: "Fixed Amount Discount"
- *             type: "DISCOUNT_VOUCHER"
- *             code: "FIXED300"
- *             discount:
- *               type: "AMOUNT"
- *               amount_off: 300
- *               minAmount: 1000
- *             redemption:
- *               quantity: 33
- *               daily_quota: 3
- *             start_date: "2025-01-02T12:26:00+07:00"
- *             expiration_date: "2025-01-31T12:26:00+07:00"
- *             active: true
- *         percentage_discount:
- *           value:
- *             name: "25% Off Discount"
- *             type: "DISCOUNT_VOUCHER"
- *             code: "PERCENT25"
- *             discount:
- *               type: "PERCENTAGE"
- *               percent_off: 25
- *               amount_limit: 500
- *               minAmount: 1000
- *             redemption:
- *               quantity: 100
- *               daily_quota: 5
- *             start_date: "2025-01-02T12:26:00+07:00"
- *             expiration_date: "2025-01-31T12:26:00+07:00"
- *             active: true
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *         voucher:
+ *           type: object
+ *           properties:
+ *             code:
+ *               type: string
+ *             name:
+ *               type: string
+ *     PaginationResponse:
+ *       type: object
+ *       properties:
+ *         total:
+ *           type: integer
+ *         page:
+ *           type: integer
+ *         limit:
+ *           type: integer
+ *         total_pages:
+ *           type: integer
+ *     Error:
+ *       type: object
+ *       properties:
+ *         error:
+ *           type: string
  */
 
 /**
  * @swagger
- * /api/v1/vouchers:
+ * /api/vouchers:
  *   post:
  *     summary: Create a new voucher
- *     description: |
- *       Create a new voucher with either fixed amount or percentage discount.
- *       
- *       For AMOUNT type discount:
- *       ```json
- *       {
- *         "name": "Fixed Amount Discount",
- *         "type": "DISCOUNT_VOUCHER",
- *         "code": "FIXED300",
- *         "discount": {
- *           "type": "AMOUNT",
- *           "amount_off": 300,
- *           "minAmount": 1000
- *         },
- *         "redemption": {
- *           "quantity": 33,
- *           "daily_quota": 3
- *         },
- *         "start_date": "2025-01-02T12:26:00+07:00",
- *         "expiration_date": "2025-01-31T12:26:00+07:00",
- *         "active": true
- *       }
- *       ```
- *       
- *       For PERCENTAGE type discount:
- *       ```json
- *       {
- *         "name": "25% Off Discount",
- *         "type": "DISCOUNT_VOUCHER",
- *         "code": "PERCENT25",
- *         "discount": {
- *           "type": "PERCENTAGE",
- *           "percent_off": 25,
- *           "amount_limit": 500,
- *           "minAmount": 1000
- *         },
- *         "redemption": {
- *           "quantity": 100,
- *           "daily_quota": 5
- *         },
- *         "start_date": "2025-01-02T12:26:00+07:00",
- *         "expiration_date": "2025-01-31T12:26:00+07:00",
- *         "active": true
- *       }
- *       ```
  *     tags: [Vouchers]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Voucher'
+ *             type: object
+ *             required:
+ *               - name
+ *               - code
+ *               - discount
+ *               - redemption
+ *               - start_date
+ *               - expiration_date
+ *             properties:
+ *               name:
+ *                 type: string
+ *               code:
+ *                 type: string
+ *               discount:
+ *                 $ref: '#/components/schemas/Discount'
+ *               redemption:
+ *                 type: object
+ *                 properties:
+ *                   quantity:
+ *                     type: integer
+ *                   daily_quota:
+ *                     type: integer
+ *               start_date:
+ *                 type: string
+ *                 format: date-time
+ *               expiration_date:
+ *                 type: string
+ *                 format: date-time
+ *               is_active:
+ *                 type: boolean
+ *               customer_id:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Voucher created successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Voucher'
+ *               $ref: '#/components/schemas/VoucherResponse'
  *       400:
- *         $ref: '#/components/responses/ValidationError'
+ *         description: Invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- */
-router.post('/', authenticateToken, createVoucher);
-
-/**
- * @swagger
- * /api/v1/vouchers:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *
  *   get:
- *     summary: List all vouchers
+ *     summary: Get all vouchers
  *     tags: [Vouchers]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
+ *       - in: query
+ *         name: code
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: is_active
+ *         schema:
+ *           type: boolean
+ *       - in: query
+ *         name: customer_id
+ *         schema:
+ *           type: string
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
- *           minimum: 1
  *           default: 1
- *         description: Page number
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
- *           minimum: 1
- *           maximum: 100
  *           default: 10
- *         description: Number of items per page
  *     responses:
  *       200:
  *         description: List of vouchers
@@ -247,134 +220,44 @@ router.post('/', authenticateToken, createVoucher);
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/Voucher'
- *                 total:
- *                   type: integer
- *                 limit:
- *                   type: integer
- *                 page:
- *                   type: integer
+ *                     $ref: '#/components/schemas/VoucherResponse'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/PaginationResponse'
  *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- */
-router.get('/', authenticateToken, listVouchers);
-
-/**
- * @swagger
- * /api/v1/vouchers/redeem:
- *   post:
- *     summary: Redeem a voucher
- *     tags: [Vouchers]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - code
- *             properties:
- *               code:
- *                 type: string
- *     responses:
- *       200:
- *         description: Voucher redeemed successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Voucher'
- *       400:
- *         $ref: '#/components/responses/ValidationError'
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       404:
- *         description: Voucher not found or expired
+ *         description: Unauthorized
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/redeem', authenticateToken, redeemVoucher);
 
 /**
  * @swagger
- * /api/v1/vouchers/{code}:
- *   put:
- *     summary: Update a voucher
+ * /api/vouchers/{code}:
+ *   get:
+ *     summary: Get voucher by code
  *     tags: [Vouchers]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: code
  *         required: true
  *         schema:
  *           type: string
- *         description: Voucher code
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               type:
- *                 type: string
- *                 enum: [DISCOUNT_VOUCHER]
- *               discount:
- *                 type: object
- *                 required:
- *                   - type
- *                 properties:
- *                   type:
- *                     type: string
- *                     enum: [AMOUNT, PERCENTAGE]
- *                   amount_off:
- *                     type: number
- *                   percent_off:
- *                     type: number
- *                     minimum: 0
- *                     maximum: 100
- *                   amount_limit:
- *                     type: number
- *                     minimum: 0
- *                   minAmount:
- *                     type: number
- *                     minimum: 0
- *               redemption:
- *                 type: object
- *                 required:
- *                   - quantity
- *                 properties:
- *                   quantity:
- *                     type: integer
- *                     minimum: 1
- *                   daily_quota:
- *                     type: integer
- *                     minimum: 1
- *               start_date:
- *                 type: string
- *                 format: date-time
- *               expiration_date:
- *                 type: string
- *                 format: date-time
- *               active:
- *                 type: boolean
  *     responses:
  *       200:
- *         description: Voucher updated successfully
+ *         description: Voucher details
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Voucher'
- *       400:
- *         $ref: '#/components/responses/ValidationError'
+ *               $ref: '#/components/schemas/VoucherResponse'
  *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       404:
  *         description: Voucher not found
  *         content:
@@ -382,16 +265,21 @@ router.post('/redeem', authenticateToken, redeemVoucher);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put('/:code', authenticateToken, updateVoucher);
 
 /**
  * @swagger
- * /api/v1/vouchers/validate:
+ * /api/vouchers/{code}/redeem:
  *   post:
- *     summary: Validate a voucher
+ *     summary: Redeem a voucher
  *     tags: [Vouchers]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -399,67 +287,79 @@ router.put('/:code', authenticateToken, updateVoucher);
  *           schema:
  *             type: object
  *             required:
- *               - code
+ *               - customer_id
+ *               - transaction_amount
  *             properties:
- *               code:
+ *               customer_id:
  *                 type: string
+ *               transaction_amount:
+ *                 type: number
  *     responses:
  *       200:
- *         description: Voucher validation result
+ *         description: Voucher redeemed successfully
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 valid:
- *                   type: boolean
- *                 voucher:
- *                   $ref: '#/components/schemas/Voucher'
+ *                 id:
+ *                   type: integer
+ *                 voucher_code:
+ *                   type: string
+ *                 discount_amount:
+ *                   type: number
+ *                 customer_id:
+ *                   type: string
+ *                 redeemed_at:
+ *                   type: string
+ *                   format: date-time
+ *                 created_at:
+ *                   type: string
+ *                   format: date-time
  *       400:
- *         $ref: '#/components/responses/ValidationError'
+ *         description: Invalid redemption request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       404:
- *         description: Voucher not found or expired
+ *         description: Unauthorized
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/validate', authenticateToken, validateVoucher);
 
 /**
  * @swagger
- * /api/v1/vouchers/redemptions:
+ * /api/vouchers/redemptions:
  *   get:
  *     summary: Get redemption history
  *     tags: [Vouchers]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: voucherId
+ *         name: voucher_id
  *         schema:
  *           type: integer
- *         description: Filter by voucher ID
  *       - in: query
- *         name: customerId
+ *         name: customer_id
  *         schema:
  *           type: string
- *         description: Filter by customer ID
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
- *         description: Page number
+ *           default: 1
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
- *         description: Items per page
+ *           default: 10
  *     responses:
  *       200:
- *         description: Redemption history
+ *         description: List of redemptions
  *         content:
  *           application/json:
  *             schema:
@@ -468,47 +368,21 @@ router.post('/validate', authenticateToken, validateVoucher);
  *                 data:
  *                   type: array
  *                   items:
- *                     type: object
- *                 total:
- *                   type: integer
- *                 limit:
- *                   type: integer
- *                 page:
- *                   type: integer
- */
-router.get('/redemptions', authenticateToken, getRedemptionHistory);
-
-/**
- * @swagger
- * /api/v1/vouchers/{code}:
- *   delete:
- *     summary: Delete a voucher
- *     tags: [Vouchers]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: code
- *         required: true
- *         schema:
- *           type: string
- *         description: Voucher code
- *     responses:
- *       200:
- *         description: Voucher deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Voucher'
+ *                     $ref: '#/components/schemas/RedemptionResponse'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/PaginationResponse'
  *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       404:
- *         description: Voucher not found
+ *         description: Unauthorized
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete('/:code', authenticateToken, deleteVoucher);
+
+router.post('/', authenticateToken, createVoucher);
+router.get('/', authenticateToken, getVouchers);
+router.get('/redemptions', authenticateToken, getRedemptionHistory);
+router.get('/:code', authenticateToken, getVoucherByCode);
+router.post('/:code/redeem', authenticateToken, redeemVoucher);
 
 export default router;

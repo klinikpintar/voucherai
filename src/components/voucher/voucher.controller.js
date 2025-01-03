@@ -3,6 +3,45 @@ import VoucherRedemption from './voucher-redemption.model.js';
 import sequelize from '../../config/database.js';
 import { Op } from 'sequelize';
 
+const formatVoucherResponse = (voucher) => ({
+  id: voucher.id,
+  name: voucher.name,
+  code: voucher.code,
+  discount: {
+    type: voucher.discountType,
+    [voucher.discountType === 'AMOUNT' ? 'amount_off' : 'percent_off']: voucher.discountAmount,
+    amount_limit: voucher.maxDiscountAmount
+  },
+  redemption: {
+    quantity: voucher.maxRedemptions,
+    daily_quota: voucher.dailyQuota,
+    redeemed_count: voucher.redeemedCount
+  },
+  start_date: voucher.startDate,
+  expiration_date: voucher.expirationDate,
+  is_active: voucher.isActive,
+  customer_id: voucher.customerId,
+  created_at: voucher.createdAt,
+  updated_at: voucher.updatedAt
+});
+
+const formatRedemptionResponse = (redemption) => ({
+  id: redemption.id,
+  voucher_id: redemption.voucherId,
+  customer_id: redemption.customerId,
+  discount_amount: redemption.discountAmount,
+  redeemed_at: redemption.redeemedAt,
+  metadata: redemption.metadata,
+  created_at: redemption.createdAt,
+  updated_at: redemption.updatedAt,
+  ...(redemption.Voucher && {
+    voucher: {
+      code: redemption.Voucher.code,
+      name: redemption.Voucher.name
+    }
+  })
+});
+
 export const createVoucher = async (req, res) => {
   try {
     const { 
@@ -12,41 +51,28 @@ export const createVoucher = async (req, res) => {
       redemption, 
       start_date, 
       expiration_date, 
-      active 
+      is_active, 
+      customer_id 
     } = req.body;
 
     const voucherData = {
       name,
       code,
-      discountType: discount.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENTAGE',
+      discountType: discount.type,
       discountAmount: discount.type === 'AMOUNT' ? discount.amount_off : discount.percent_off,
       maxDiscountAmount: discount.amount_limit || 0,
       maxRedemptions: redemption.quantity,
       dailyQuota: redemption.daily_quota,
       startDate: start_date,
       expirationDate: expiration_date,
-      isActive: active
+      isActive: is_active,
+      customerId: customer_id
     };
 
     const voucher = await Voucher.create(voucherData);
     
     // Format response according to reference
-    const response = {
-      name: voucher.name,
-      code: voucher.code,
-      discount: {
-        type: voucher.discountType === 'AMOUNT' ? 'AMOUNT' : 'PERCENTAGE',
-        [voucher.discountType === 'AMOUNT' ? 'amount_off' : 'percent_off']: voucher.discountAmount,
-        amount_limit: voucher.maxDiscountAmount
-      },
-      redemption: {
-        quantity: voucher.maxRedemptions,
-        dailyQuota: voucher.dailyQuota
-      },
-      startDate: voucher.startDate,
-      expirationDate: voucher.expirationDate,
-      isActive: voucher.isActive
-    };
+    const response = formatVoucherResponse(voucher);
 
     res.status(201).json(response);
   } catch (error) {
@@ -58,14 +84,13 @@ export const createVoucher = async (req, res) => {
       : 'Failed to create voucher';
       
     res.status(400).json({
-      status: 'error',
-      message: errorMessage,
+      error: errorMessage,
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-export const listVouchers = async (req, res) => {
+export const getVouchers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -88,8 +113,10 @@ export const listVouchers = async (req, res) => {
       }]
     });
 
+    const data = rows.map(formatVoucherResponse);
+
     res.json({
-      data: rows,
+      data,
       total: count,
       limit,
       page
@@ -104,7 +131,7 @@ export const redeemVoucher = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
-    const { code, customerId, metadata = {} } = req.body;
+    const { code, customer_id, metadata = {} } = req.body;
     
     const voucher = await Voucher.findOne({
       where: {
@@ -120,13 +147,13 @@ export const redeemVoucher = async (req, res) => {
     }
 
     // Check if voucher is restricted to a specific customer
-    if (voucher.customerId && voucher.customerId !== customerId) {
+    if (voucher.customerId && voucher.customerId !== customer_id) {
       await t.rollback();
       return res.status(403).json({ error: 'This voucher is restricted to a specific customer' });
     }
 
     // Check if customer ID is required but not provided
-    if (voucher.customerId && !customerId) {
+    if (voucher.customerId && !customer_id) {
       await t.rollback();
       return res.status(400).json({ error: 'Customer ID is required for this voucher' });
     }
@@ -175,7 +202,7 @@ export const redeemVoucher = async (req, res) => {
     // Record redemption history
     const redemption = await VoucherRedemption.create({
       voucherId: voucher.id,
-      customerId,
+      customerId: customer_id,
       metadata,
       redeemedAt: now
     }, { transaction: t });
@@ -188,14 +215,13 @@ export const redeemVoucher = async (req, res) => {
       value: voucher.discountAmount
     };
 
-    res.json({
+    const response = {
       message: 'Voucher redeemed successfully',
       discount,
-      redemption: {
-        id: redemption.id,
-        redeemedAt: redemption.redeemedAt
-      }
-    });
+      redemption: formatRedemptionResponse(redemption)
+    };
+
+    res.json(response);
   } catch (error) {
     await t.rollback();
     console.error('Redeem voucher error:', error);
@@ -212,7 +238,8 @@ export const updateVoucher = async (req, res) => {
 
     if (updated) {
       const updatedVoucher = await Voucher.findOne({ where: { code } });
-      res.json(updatedVoucher);
+      const response = formatVoucherResponse(updatedVoucher);
+      res.json(response);
     } else {
       res.status(404).json({ error: 'Voucher not found' });
     }
@@ -224,7 +251,7 @@ export const updateVoucher = async (req, res) => {
 
 export const validateVoucher = async (req, res) => {
   try {
-    const { code, customerId } = req.body;
+    const { code, customer_id } = req.body;
     
     const voucher = await Voucher.findOne({
       where: {
@@ -238,12 +265,12 @@ export const validateVoucher = async (req, res) => {
     }
 
     // Check if voucher is restricted to a specific customer
-    if (voucher.customerId && voucher.customerId !== customerId) {
+    if (voucher.customerId && voucher.customerId !== customer_id) {
       return res.status(403).json({ error: 'This voucher is restricted to a specific customer' });
     }
 
     // Check if customer ID is required but not provided
-    if (voucher.customerId && !customerId) {
+    if (voucher.customerId && !customer_id) {
       return res.status(400).json({ error: 'Customer ID is required for this voucher' });
     }
 
@@ -286,21 +313,38 @@ export const validateVoucher = async (req, res) => {
       value: voucher.discountAmount
     };
 
-    res.json({
+    const response = {
       message: 'Voucher is valid',
-      voucher: {
-        name: voucher.name,
-        code: voucher.code,
-        discount,
-        startDate: voucher.startDate,
-        expirationDate: voucher.expirationDate,
-        remainingRedemptions: voucher.maxRedemptions - voucher.redeemedCount,
-        remainingDailyQuota: voucher.dailyQuota - todayRedemptions
-      }
-    });
+      voucher: formatVoucherResponse(voucher)
+    };
+
+    res.json(response);
   } catch (error) {
     console.error('Validate voucher error:', error);
     res.status(500).json({ error: 'Error validating voucher' });
+  }
+};
+
+export const getVoucherByCode = async (req, res) => {
+  try {
+    const { code } = req.params;
+    const voucher = await Voucher.findOne({ 
+      where: { code },
+      attributes: { exclude: ['createdAt', 'updatedAt'] }
+    });
+
+    if (!voucher) {
+      return res.status(404).json({
+        error: 'Voucher not found'
+      });
+    }
+
+    return res.json(formatVoucherResponse(voucher));
+  } catch (error) {
+    console.error('Error fetching voucher:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch voucher'
+    });
   }
 };
 
@@ -326,11 +370,13 @@ export const getRedemptionHistory = async (req, res) => {
       }]
     });
 
+    const data = rows.map(formatRedemptionResponse);
+
     res.json({
       total: count,
       page,
       totalPages: Math.ceil(count / limit),
-      data: rows
+      data
     });
   } catch (error) {
     console.error('Get redemption history error:', error);
