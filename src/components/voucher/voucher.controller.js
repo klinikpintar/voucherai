@@ -232,20 +232,52 @@ export const redeemVoucher = async (req, res) => {
 export const updateVoucher = async (req, res) => {
   try {
     const { code } = req.params;
-    const [updated] = await Voucher.update(req.body, {
-      where: { code }
-    });
+    const {
+      name,
+      discount,
+      redemption,
+      start_date,
+      expiration_date,
+      is_active,
+      customer_id
+    } = req.body;
 
-    if (updated) {
-      const updatedVoucher = await Voucher.findOne({ where: { code } });
-      const response = formatVoucherResponse(updatedVoucher);
-      res.json(response);
-    } else {
-      res.status(404).json({ error: 'Voucher not found' });
+    const voucher = await Voucher.findOne({ where: { code } });
+
+    if (!voucher) {
+      return res.status(404).json({
+        error: 'Voucher not found'
+      });
     }
+
+    const updateData = {
+      name,
+      discountType: discount?.type,
+      discountAmount: discount?.type === 'AMOUNT' ? discount.amount_off : discount.percent_off,
+      maxDiscountAmount: discount?.amount_limit || 0,
+      maxRedemptions: redemption?.quantity,
+      dailyQuota: redemption?.daily_quota,
+      startDate: start_date,
+      expirationDate: expiration_date,
+      isActive: is_active,
+      customerId: customer_id
+    };
+
+    // Remove undefined values
+    Object.keys(updateData).forEach(key => 
+      updateData[key] === undefined && delete updateData[key]
+    );
+
+    await voucher.update(updateData);
+    
+    // Fetch updated voucher to return
+    const updatedVoucher = await Voucher.findOne({ where: { code } });
+    return res.json(formatVoucherResponse(updatedVoucher));
   } catch (error) {
-    console.error('Update voucher error:', error);
-    res.status(400).json({ error: 'Error updating voucher' });
+    console.error('Error updating voucher:', error);
+    return res.status(500).json({
+      error: 'Failed to update voucher'
+    });
   }
 };
 

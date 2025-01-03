@@ -1,5 +1,5 @@
 import express from 'express';
-import { createVoucher, getVouchers, getVoucherByCode, redeemVoucher, getRedemptionHistory } from './voucher.controller.js';
+import { createVoucher, getVouchers, getVoucherByCode, redeemVoucher, getRedemptionHistory, updateVoucher } from './voucher.controller.js';
 import { authenticateToken } from '../auth/auth.middleware.js';
 
 const router = express.Router();
@@ -264,6 +264,70 @@ const router = express.Router();
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
+ *   put:
+ *     summary: Update a voucher
+ *     tags: [Vouchers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               discount:
+ *                 $ref: '#/components/schemas/Discount'
+ *               redemption:
+ *                 type: object
+ *                 properties:
+ *                   quantity:
+ *                     type: integer
+ *                   daily_quota:
+ *                     type: integer
+ *               start_date:
+ *                 type: string
+ *                 format: date-time
+ *               expiration_date:
+ *                 type: string
+ *                 format: date-time
+ *               is_active:
+ *                 type: boolean
+ *               customer_id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Voucher updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/VoucherResponse'
+ *       400:
+ *         description: Invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Voucher not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 
 /**
@@ -384,5 +448,6 @@ router.get('/', authenticateToken, getVouchers);
 router.get('/redemptions', authenticateToken, getRedemptionHistory);
 router.get('/:code', authenticateToken, getVoucherByCode);
 router.post('/:code/redeem', authenticateToken, redeemVoucher);
+router.put('/:code', authenticateToken, updateVoucher);
 
 export default router;
