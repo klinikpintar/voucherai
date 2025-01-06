@@ -42,6 +42,78 @@ const formatRedemptionResponse = (redemption) => ({
   })
 });
 
+/*
+Transaction handling prevents race conditions in concurrent voucher redemptions:
+Without transaction:
+1. User A checks count (9/10)
+2. User B checks count (9/10)
+3. User A increments (10/10)
+4. User B increments (11/10) - Invalid state!
+
+With transaction:
+1. User A locks row, checks count (9/10)
+2. User B waits for lock
+3. User A increments and commits (10/10)
+4. User B gets updated count (10/10), validation fails
+*/
+const validateVoucherLogic = async (voucher, customerId = null, t = null) => {
+  if (!voucher) {
+    return { isValid: false, error: 'Voucher not found' };
+  }
+
+  if (!voucher.isActive) {
+    return { isValid: false, error: 'Voucher is inactive' };
+  }
+
+  if (voucher.customerId && voucher.customerId !== customerId) {
+    return { isValid: false, error: 'This voucher is restricted to a specific customer' };
+  }
+
+  if (voucher.customerId && !customerId) {
+    return { isValid: false, error: 'Customer ID is required for this voucher' };
+  }
+
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+
+  if (now > new Date(voucher.expirationDate)) {
+    return { isValid: false, error: 'Voucher has expired' };
+  }
+
+  if (now < new Date(voucher.startDate)) {
+    return { isValid: false, error: 'Voucher is not yet active' };
+  }
+
+  const currentCount = t 
+    ? await Voucher.findOne({ 
+        where: { id: voucher.id }, 
+        transaction: t, 
+        lock: true 
+      }).then(v => v.redeemedCount)
+    : voucher.redeemedCount;
+
+  if (currentCount >= voucher.maxRedemptions) {
+    return { isValid: false, error: 'Voucher has reached maximum redemption' };
+  }
+
+  const todayRedemptions = await VoucherRedemption.count({
+    where: {
+      voucherId: voucher.id,
+      redeemedAt: {
+        [Op.gte]: new Date(today),
+        [Op.lt]: new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
+      }
+    },
+    ...(t && { transaction: t })
+  });
+
+  if (todayRedemptions >= voucher.dailyQuota) {
+    return { isValid: false, error: 'Daily quota exceeded' };
+  }
+
+  return { isValid: true };
+};
+
 export const createVoucher = async (req, res) => {
   try {
     const { 
@@ -97,7 +169,10 @@ export const getVouchers = async (req, res) => {
     const offset = (page - 1) * limit;
     const customerId = req.query.customerId;
 
-    const where = {};
+    const where = {
+      isActive: true
+    };
+    
     if (customerId) {
       where.customerId = customerId;
     }
@@ -113,10 +188,10 @@ export const getVouchers = async (req, res) => {
       }]
     });
 
-    const data = rows.map(formatVoucherResponse);
+    const vouchers = rows.map(formatVoucherResponse);
 
     res.json({
-      data,
+      data: vouchers,
       total: count,
       limit,
       page
@@ -131,93 +206,35 @@ export const redeemVoucher = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
-    const { code, customer_id, metadata = {} } = req.body;
+    const { code } = req.params;
+    const { customer_id, metadata = {} } = req.body;
     
     const voucher = await Voucher.findOne({
-      where: {
-        code,
-        isActive: true
-      },
-      transaction: t
+      where: { code },
+      transaction: t,
+      lock: true
     });
 
-    if (!voucher) {
+    const validation = await validateVoucherLogic(voucher, customer_id, t);
+    if (!validation.isValid) {
       await t.rollback();
-      return res.status(404).json({ error: 'Voucher not found' });
+      return res.status(400).json({ error: validation.error });
     }
 
-    // Check if voucher is restricted to a specific customer
-    if (voucher.customerId && voucher.customerId !== customer_id) {
-      await t.rollback();
-      return res.status(403).json({ error: 'This voucher is restricted to a specific customer' });
-    }
-
-    // Check if customer ID is required but not provided
-    if (voucher.customerId && !customer_id) {
-      await t.rollback();
-      return res.status(400).json({ error: 'Customer ID is required for this voucher' });
-    }
-
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-
-    // Check if voucher has expired
-    if (now > new Date(voucher.expirationDate)) {
-      await t.rollback();
-      return res.status(400).json({ error: 'Voucher has expired' });
-    }
-
-    // Check if voucher has started
-    if (now < new Date(voucher.startDate)) {
-      await t.rollback();
-      return res.status(400).json({ error: 'Voucher is not yet active' });
-    }
-
-    // Check if voucher has reached its maximum redemption
-    if (voucher.redeemedCount >= voucher.maxRedemptions) {
-      await t.rollback();
-      return res.status(400).json({ error: 'Voucher has reached maximum redemption' });
-    }
-
-    // Check daily quota using redemption history
-    const todayRedemptions = await VoucherRedemption.count({
-      where: {
-        voucherId: voucher.id,
-        redeemedAt: {
-          [Op.gte]: new Date(today),
-          [Op.lt]: new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
-        }
-      },
-      transaction: t
-    });
-
-    if (todayRedemptions >= voucher.dailyQuota) {
-      await t.rollback();
-      return res.status(400).json({ error: 'Daily quota exceeded' });
-    }
-
-    // Update redemption count
     await voucher.increment('redeemedCount', { transaction: t });
 
-    // Record redemption history
     const redemption = await VoucherRedemption.create({
       voucherId: voucher.id,
       customerId: customer_id,
+      discountAmount: voucher.discountAmount,
       metadata,
-      redeemedAt: now
+      redeemedAt: new Date()
     }, { transaction: t });
 
     await t.commit();
 
-    // Prepare discount information
-    const discount = {
-      type: voucher.discountType,
-      value: voucher.discountAmount
-    };
-
     const response = {
       message: 'Voucher redeemed successfully',
-      discount,
       redemption: formatRedemptionResponse(redemption)
     };
 
@@ -280,85 +297,11 @@ export const updateVoucher = async (req, res) => {
   }
 };
 
-export const validateVoucher = async (req, res) => {
-  try {
-    const { code, customer_id } = req.body;
-    
-    const voucher = await Voucher.findOne({
-      where: {
-        code,
-        isActive: true
-      }
-    });
-
-    if (!voucher) {
-      return res.status(404).json({ error: 'Voucher not found' });
-    }
-
-    // Check if voucher is restricted to a specific customer
-    if (voucher.customerId && voucher.customerId !== customer_id) {
-      return res.status(403).json({ error: 'This voucher is restricted to a specific customer' });
-    }
-
-    // Check if customer ID is required but not provided
-    if (voucher.customerId && !customer_id) {
-      return res.status(400).json({ error: 'Customer ID is required for this voucher' });
-    }
-
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-
-    // Check if voucher has expired
-    if (now > new Date(voucher.expirationDate)) {
-      return res.status(400).json({ error: 'Voucher has expired' });
-    }
-
-    // Check if voucher has started
-    if (now < new Date(voucher.startDate)) {
-      return res.status(400).json({ error: 'Voucher is not yet active' });
-    }
-
-    // Check if voucher has reached its maximum redemption
-    if (voucher.redeemedCount >= voucher.maxRedemptions) {
-      return res.status(400).json({ error: 'Voucher has reached maximum redemption' });
-    }
-
-    // Check daily quota using redemption history
-    const todayRedemptions = await VoucherRedemption.count({
-      where: {
-        voucherId: voucher.id,
-        redeemedAt: {
-          [Op.gte]: new Date(today),
-          [Op.lt]: new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
-        }
-      }
-    });
-
-    if (todayRedemptions >= voucher.dailyQuota) {
-      return res.status(400).json({ error: 'Daily quota exceeded' });
-    }
-
-    // Prepare discount information
-    const discount = {
-      type: voucher.discountType,
-      value: voucher.discountAmount
-    };
-
-    const response = {
-      message: 'Voucher is valid',
-      voucher: formatVoucherResponse(voucher)
-    };
-
-    res.json(response);
-  } catch (error) {
-    console.error('Validate voucher error:', error);
-    res.status(500).json({ error: 'Error validating voucher' });
-  }
-};
-
 export const getVoucherByCode = async (req, res) => {
   try {
     const { code } = req.params;
+    const customer_id = req.query.customer_id;
+    
     const voucher = await Voucher.findOne({ 
       where: { code },
       attributes: { exclude: ['createdAt', 'updatedAt'] }
@@ -370,7 +313,14 @@ export const getVoucherByCode = async (req, res) => {
       });
     }
 
-    return res.json(formatVoucherResponse(voucher));
+    const validation = await validateVoucherLogic(voucher, customer_id);
+    const response = formatVoucherResponse(voucher);
+    response.isValid = validation.isValid;
+    if (!validation.isValid) {
+      response.validationError = validation.error;
+    }
+    
+    return res.json(response);
   } catch (error) {
     console.error('Error fetching voucher:', error);
     return res.status(500).json({
