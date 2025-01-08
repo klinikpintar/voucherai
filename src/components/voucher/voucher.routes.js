@@ -1,5 +1,5 @@
 import express from 'express';
-import { createVoucher, getVouchers, getVoucherByCode, redeemVoucher, getRedemptionHistory, updateVoucher } from './voucher.controller.js';
+import { createVoucher, getVouchers, getVoucherByCode, redeemVoucher, getRedemptionHistory, updateVoucher, deleteVoucher } from './voucher.controller.js';
 import { authenticateToken } from '../auth/auth.middleware.js';
 
 const router = express.Router();
@@ -352,6 +352,50 @@ const router = express.Router();
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
+ *   delete:
+ *     summary: Delete a voucher
+ *     description: Delete a voucher by its code. This operation cannot be undone.
+ *     tags: [Vouchers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Voucher code
+ *     responses:
+ *       200:
+ *         description: Voucher deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Voucher deleted successfully
+ *       404:
+ *         description: Voucher not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Voucher not found
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Error deleting voucher
  */
 
 /**
@@ -467,11 +511,38 @@ const router = express.Router();
  *               $ref: '#/components/schemas/Error'
  */
 
-router.post('/', authenticateToken, createVoucher);
-router.get('/', authenticateToken, getVouchers);
-router.get('/redemptions', authenticateToken, getRedemptionHistory);
-router.get('/:code', authenticateToken, getVoucherByCode);
-router.post('/:code/redeem', authenticateToken, redeemVoucher);
-router.put('/:code', authenticateToken, updateVoucher);
+const debugMiddleware = (req, res, next) => {
+  const oldJson = res.json;
+  const startTime = Date.now();
+  const requestBody = ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : undefined;
+  const queryParams = Object.keys(req.query).length ? req.query : undefined;
+  const routeParams = Object.keys(req.params).length ? req.params : undefined;
+
+  console.log('\n=== Request ===');
+  console.log('Endpoint:', req.method, req.originalUrl);
+  if (routeParams) console.log('Route Params:', routeParams);
+  if (queryParams) console.log('Query Params:', queryParams);
+  if (requestBody) console.log('Request Body:', requestBody);
+
+  res.json = function(data) {
+    const responseTime = Date.now() - startTime;
+    console.log('\n=== Response ===');
+    console.log('Status:', res.statusCode);
+    console.log('Time:', responseTime + 'ms');
+    console.log('Response Body:', data);
+    console.log('================\n');
+    return oldJson.apply(res, arguments);
+  };
+
+  next();
+};
+
+router.post('/', authenticateToken, debugMiddleware, createVoucher);
+router.get('/', authenticateToken, debugMiddleware, getVouchers);
+router.get('/redemptions', authenticateToken, debugMiddleware, getRedemptionHistory);
+router.get('/:code', authenticateToken, debugMiddleware, getVoucherByCode);
+router.post('/:code/redeem', authenticateToken, debugMiddleware, redeemVoucher);
+router.put('/:code', authenticateToken, debugMiddleware, updateVoucher);
+router.delete('/:code', authenticateToken, debugMiddleware, deleteVoucher);
 
 export default router;
